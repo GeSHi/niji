@@ -9,7 +9,7 @@ use self::parser::*;
 use self::theme::*;
 
 pub struct Niji<'a, 'b> {
-    lang: &'a context::Language<'a>,
+    lang: &'a context::Language,
     renderer: &'b renderer::Renderer
 }
 
