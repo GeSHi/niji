@@ -1,0 +1,7 @@
+[package]
+name = "niji"
+version = "2.0.0"
+authors = ["Benny Baumann <BenBE@geshi.org>"]
+
+[dependencies]
+unicode-normalization = "0.1.1"
