@@ -8,9 +8,11 @@ use std::vec;
 
 type size = u64;
 
-pub struct Language<'a> {
-    name: &'a str,
-    root: Rc<Box<Context>>
+pub struct Language(Rc<LanguageInner>);
+
+struct LanguageInner {
+    name: String,
+    root: Rc<RootContext>
 }
 
 pub struct StartData<'a> {
@@ -28,9 +30,12 @@ pub struct EndData<'a> {
 
 pub trait Context {
 
-    fn get_name(&self) -> String;
+    /// Returns the fully-qualified name of this context
+    fn get_name(&self) -> &str;
 
-    fn get_language(&self) -> Rc<Language>;
+    /// Returns a handle to the language associated with this context's
+    /// root node
+    fn get_language(&self) -> Language;
 
     fn is_alias(&self) -> bool;
 
@@ -46,20 +51,45 @@ pub trait Context {
 
 }
 
-impl<'a> Language<'a> {
+impl Language {
 
-    pub fn new() -> Language<'a> {
+    pub fn new() -> Language {
         Language::newByName("undefined")
     }
 
-    pub fn newByName(langname: &'a str) -> Language<'a> {
-        let mut rc = RootContext::new();
-        let mut lang = Language {
-            name: langname,
-            root: Rc::new( Box::new( rc ) )
-        };
-        rc.language = Some( Rc::downgrade( & Rc::new( lang ) ) );
-        lang
+    pub fn newByName(langname: &str) -> Language {
+        unsafe {
+            use std::{mem, ptr};
+
+            let mut lang_rc = Rc::new(LanguageInner {
+                name: langname.to_owned(),
+                root: Rc::new(mem::uninitialized())
+            });
+            let mut unsafe_root_mut_ref = {
+                let lang_mut = Rc::get_mut(&mut lang_rc).unwrap();
+                let root_mut = Rc::get_mut(&mut lang_mut.root).unwrap();
+                // What this cast does is give us a mutable pointer
+                // to the contents of lang_rc.root, *without* borrowing
+                // lang_rc mutably. We need to do this because we're
+                // going to borrow lang_rc immutably to get a Weak ref
+                // from it. This is safe (i.e. does not violate the
+                // aliasing rules) because the *contents* of a Rc are not
+                // part of the same object as the Rc itself; they're part
+                // of the RcInner which is separately allocated. So while
+                // logically it appears that we have have an immutable
+                // reference of lang_rc at the same time as a mutable reference
+                // inside of it (*** which would be undefined behaviour ***),
+                // actually we do not.
+                &mut *(root_mut as *mut RootContext)
+            };
+            ptr::write(unsafe_root_mut_ref, RootContext {
+                full_name: format!(":{}/", langname),
+                language: Rc::downgrade(&lang_rc),
+                subcontexts: RefCell::new(vec![])
+            });
+
+            Language(lang_rc)
+        }
     }
 
     pub fn loadFromSpec(&self, spec: &str) -> bool {
@@ -68,38 +98,22 @@ impl<'a> Language<'a> {
 
 }
 
-pub struct RootContext<'a, 'b> {
-    language: Option<Weak<Language<'a>>>,
-
-    subcontexts: RefCell<Vec<&'b Context>>
+pub struct RootContext {
+    full_name: String,
+    language: Weak<LanguageInner>,
+    subcontexts: RefCell<Vec<Box<Context>>>
 }
 
-impl<'a, 'b> RootContext<'a, 'b> {
-
-    pub fn new() -> RootContext<'a, 'b> {
-        RootContext {
-            language: None,
-            subcontexts: RefCell::new( Vec::new() )
-        }
+impl Context for RootContext {
+    fn get_name(&self) -> &str {
+        &self.full_name
     }
 
-}
-
-impl<'a, 'b> Context for RootContext<'a, 'b> {
-
-    fn get_name(&self) -> String {
-        ":".to_string() + self.get_language().name + "/"
-    }
-
-    fn get_language(&self) -> Rc<Language> {
-        let langref = match self.language {
-            Some(lang) => lang.upgrade(),
-            None => None
-        };
-        match langref {
-            Some(rl) => rl,
-            None => Rc::new( Language::new() )
-        }
+    fn get_language(&self) -> Language {
+        // This unwrap is OK since the referenced language owns us;
+        // if it's gone that we've died and there's no way we're in
+        // this function
+        Language(self.language.upgrade().unwrap())
     }
 
     fn is_alias(&self) -> bool {
