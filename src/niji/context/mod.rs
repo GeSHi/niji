@@ -65,6 +65,7 @@ impl Language {
                 name: langname.to_owned(),
                 root: Rc::new(mem::uninitialized())
             });
+
             let mut unsafe_root_mut_ref = {
                 let lang_mut = Rc::get_mut(&mut lang_rc).unwrap();
                 let root_mut = Rc::get_mut(&mut lang_mut.root).unwrap();
@@ -82,10 +83,12 @@ impl Language {
                 // actually we do not.
                 &mut *(root_mut as *mut RootContext)
             };
+
             ptr::write(unsafe_root_mut_ref, RootContext {
-                full_name: format!(":{}/", langname),
                 language: Rc::downgrade(&lang_rc),
-                subcontexts: RefCell::new(vec![])
+                subcontexts: RefCell::new(vec![]),
+
+                full_name: format!(":{}/", langname)
             });
 
             Language(lang_rc)
@@ -99,9 +102,10 @@ impl Language {
 }
 
 pub struct RootContext {
-    full_name: String,
     language: Weak<LanguageInner>,
-    subcontexts: RefCell<Vec<Box<Context>>>
+    subcontexts: RefCell<Vec<Box<Context>>>,
+
+    full_name: String
 }
 
 impl Context for RootContext {
