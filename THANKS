@@ -1,0 +1,15 @@
+
+             THANKS - List of credits for Niji
+
+I owe these people/groups my thanks for help with Niji. Thanks, guys!
+
+- apoelstra              Providing input on getting the internal structures to work
+- Benny Baumann          Several ideas and optimizations in GeSHi, initiator of Niji
+- Christian Weiske       Several optimizations in the Parser of GeSHi
+- Nigel McNie            Initial work on GeSHi, which Niji is a port of
+
+Also I want to thank everybody who contributed to Niji by providing input of any
+kind to its predecessor GeSHi.
+
+Do you want your name in here? Help me out! Make a language file, or suggest a new
+feature, or make a plugin for Niji for some other software, then tell me about it!
